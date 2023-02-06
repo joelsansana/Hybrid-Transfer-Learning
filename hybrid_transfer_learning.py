@@ -11,6 +11,7 @@ from pylab import rcParams
 from whitebox import Reactor
 from blackbox import ML
 from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_absolute_percentage_error
 
 plt.style.use('seaborn-white')
 rcParams['figure.figsize'] = 15, 8
@@ -428,6 +429,25 @@ for col in df_tl4.columns:
     ax[1,1].bar(col, rmse)
     ax[1,1].set_title('Test 4', fontsize=18)
 plt.savefig('figures/TL_RMSE.png')
+
+fig, ax = plt.subplots(nrows=2, ncols=2)
+for col in df_tl1.columns:
+    mape = mean_absolute_percentage_error(yt1[7*24:], df_tl1[col])*100
+    ax[0,0].bar(col, mape)
+    ax[0,0].set_title('MAPE - Test 1', fontsize=18)
+for col in df_tl2.columns:
+    mape = mean_absolute_percentage_error(yt2[7*24:], df_tl2[col])*100
+    ax[0,1].bar(col, mape)
+    ax[0,1].set_title('MAPE - Test 2', fontsize=18)
+for col in df_tl3.columns:
+    mape = mean_absolute_percentage_error(yt3[7*24:], df_tl3[col])*100
+    ax[1,0].bar(col, mape)
+    ax[1,0].set_title('MAPE - Test 3', fontsize=18)
+for col in df_tl4.columns:
+    mape = mean_absolute_percentage_error(yt4[7*24:], df_tl4[col])*100
+    ax[1,1].bar(col, mape)
+    ax[1,1].set_title('MAPE - Test 4', fontsize=18)
+plt.savefig('figures/TL_MAPE.png')
 
 rmse11 = mean_squared_error(yt1[7*24:], df_tl1['LASSO'], squared=False)
 rmse12 = mean_squared_error(yt1[7*24:], df_tl1['KAH_LASSO'], squared=False)
