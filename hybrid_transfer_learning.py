@@ -8,7 +8,7 @@ import seaborn as sns
 
 from matplotlib import pyplot as plt
 from pylab import rcParams
-from whitebox import Reactor
+from whitebox_gekko import Reactor
 from blackbox import ML
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import mean_absolute_percentage_error
@@ -66,21 +66,21 @@ ut4 = np.array([Xt4.iloc[:, 1], Xt4.iloc[:, 4], Xt4.iloc[:, 5]+273.15, \
 
 #%% White-Box Model
 wb_model = Reactor()
-par = wb_model.train(ts, us, ys.values)
+par = wb_model.train(ts, ys, us)
 
-svR_test1 = wb_model.predict(tt1[:7*24], par, ut1[:7*24])
+svR_test1 = wb_model.predict(tt1[:7*24], ut1[:7*24], par)
 df_test1 = pd.DataFrame(data=[])
 df_test1['WB'] = svR_test1[:, 3]
 
-svR_test2 = wb_model.predict(tt2[:7*24], par, ut2[:7*24])
+svR_test2 = wb_model.predict(tt2[:7*24], ut2[:7*24], par)
 df_test2 = pd.DataFrame(data=[])
 df_test2['WB'] = svR_test2[:, 3]
 
-svR_test3 = wb_model.predict(tt3[:7*24], par, ut3[:7*24])
+svR_test3 = wb_model.predict(tt3[:7*24], ut3[:7*24], par)
 df_test3 = pd.DataFrame(data=[])
 df_test3['WB'] = svR_test3[:, 3]
 
-svR_test4 = wb_model.predict(tt4[:7*24], par, ut4[:7*24])
+svR_test4 = wb_model.predict(tt4[:7*24], ut4[:7*24], par)
 df_test4 = pd.DataFrame(data=[])
 df_test4['WB'] = svR_test4[:, 3]
 
@@ -127,7 +127,7 @@ plt.savefig('figures/DD_profiles.png')
 # FAZER UM SUBPLOT PARA CADA ZONA DE TESTE
 
 #%% Parallel Cooperative Hybrid model (WB + BB)
-svR = wb_model.predict(ts, par, us)
+svR = wb_model.predict(ts, us, par)
 
 for candidate in candidates:
     model = ML()
@@ -203,32 +203,19 @@ ax[3].set_ylabel('KPI / -', fontsize=18)
 plt.savefig('figures/KAH_profiles.png')
 
 #%% Serial Hybrid model (BB -> WB)
-rates = wb_model.dyn_rates(ts, us, ys.values, par0=par)
-
-def serial_predict(time, X, u, model_wb, model_ml):
-    samples = len(time)
-    tspan = time.values
-    x0 = np.array([0.0031, 0.4235, 0.1432, 0.4302, 333.5500,])
-
-    sol = model_wb.ode_eval([tspan[0], tspan[-1]], model_ml.predict(X.values[0, :].reshape(1, -1)), u[:, 0], x0)
-    x0 = sol.y[:, -1]
-    states = np.array([])
-    for i in range(samples-1):
-        states = np.append(states, x0)
-        rate = model_ml.predict(X.values[i, :].reshape(1, -1))
-        sol = model_wb.ode_eval(tspan[i:i+2], rate, u[:, i], x0)
-        x0 = sol.y[:, -1]
-    states = np.append(states, sol.y[:, -1])
-    states = states.reshape(samples, len(x0))
-    return states[:, 3]
+rates = wb_model.train(ts, ys, us, par0=par, dynamic=True)
 
 for candidate in candidates:
     model = ML()
-    model.train(Xs.values[:-1, :], rates, method=candidate)
-    df_test1['SH_'+candidate.upper()] = serial_predict(tt1[:7*24], Xt1[:7*24], ut1[:7*24], wb_model, model)
-    df_test2['SH_'+candidate.upper()] = serial_predict(tt2[:7*24], Xt2[:7*24], ut2[:7*24], wb_model, model)
-    df_test3['SH_'+candidate.upper()] = serial_predict(tt3[:7*24], Xt3[:7*24], ut3[:7*24], wb_model, model)
-    df_test4['SH_'+candidate.upper()] = serial_predict(tt4[:7*24], Xt4[:7*24], ut4[:7*24], wb_model, model)
+    model.train(Xs.values, rates, method=candidate)
+    rates1 = model.predict(Xt1[:7*24])
+    rates2 = model.predict(Xt2[:7*24])
+    rates3 = model.predict(Xt3[:7*24])
+    rates4 = model.predict(Xt4[:7*24])
+    df_test1['SH_'+candidate.upper()] = wb_model.predict(tt1[:7*24], ut1[:7*24], rates1)[:, 3]
+    df_test2['SH_'+candidate.upper()] = wb_model.predict(tt2[:7*24], ut2[:7*24], rates2)[:, 3]
+    df_test3['SH_'+candidate.upper()] = wb_model.predict(tt3[:7*24], ut3[:7*24], rates3)[:, 3]
+    df_test4['SH_'+candidate.upper()] = wb_model.predict(tt4[:7*24], ut4[:7*24], rates4)[:, 3]
 
 fig, ax = plt.subplots(nrows=4, ncols=1)
 ax[0].plot(tt1/(3600*24), yt1, 'k', label='Actual')
